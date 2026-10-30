@@ -45,6 +45,10 @@ except Exception:
 import telebot
 from telebot import types
 import yt_dlp
+
+# YouTube bot-check avoidance: prefer mobile player clients (android/ios)
+# over the web client, which datacenter IPs get challenged on.
+YT_EXTRACTOR_ARGS = {'youtube': {'player_client': ['android', 'ios']}}
 import time
 import json
 from datetime import datetime, time as d_time
@@ -247,7 +251,7 @@ def callback_query(call):
     try:
         if call.data == "thumbnail":
             bot.edit_message_text("⏳ Thumbnail ရယူနေပါပြီ...", chat_id=chat_id, message_id=call.message.message_id)
-            ydl_opts = {'quiet': True, 'noplaylist': True}
+            ydl_opts = {'quiet': True, 'noplaylist': True, 'extractor_args': YT_EXTRACTOR_ARGS}
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
                 thumb_url = info.get('thumbnail')
@@ -268,6 +272,7 @@ def callback_query(call):
                 'subtitleslangs': ['en'],
                 'outtmpl': sub_template,
                 'noplaylist': True,
+                'extractor_args': YT_EXTRACTOR_ARGS,
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
@@ -294,6 +299,7 @@ def callback_query(call):
                 'outtmpl': out_filename,
                 'noplaylist': True,
                 'merge_output_format': 'mp4',
+                'extractor_args': YT_EXTRACTOR_ARGS,
                 'postprocessor_args': [
                     '-c:v', 'libx264',
                     '-c:a', 'aac',
@@ -329,6 +335,7 @@ def callback_query(call):
                 'format': 'bestaudio/best',
                 'outtmpl': out_filename,
                 'noplaylist': True,
+                'extractor_args': YT_EXTRACTOR_ARGS,
                 'postprocessors': [{
                     'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
@@ -344,6 +351,7 @@ def callback_query(call):
                     'format': 'm4a/bestaudio/best',
                     'outtmpl': out_filename,
                     'noplaylist': True,
+                    'extractor_args': YT_EXTRACTOR_ARGS,
                 }
                 with yt_dlp.YoutubeDL(ydl_opts_fallback) as ydl:
                     ydl.download([url])
