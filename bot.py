@@ -1,7 +1,7 @@
 """zixora video downloader bot — original Gemini bot, host-ready version.
 
-Same behaviour as before: YouTube/TikTok links -> menu (Video resolutions,
-MP3, Thumbnail, Subtitle), @zixoravpn channel-join gate, Mon-Sat 09:30-17:30
+Same behaviour as before: YouTube/TikTok links -> menu (MP3,
+Thumbnail, Subtitle), @zixoravpn channel-join gate, Mon-Sat 09:30-17:30
 hours (Sunday closed), 3-min cooldown for non-admins, /stats for admin.
 
 Changes vs the original paste (only these):
@@ -169,7 +169,7 @@ def send_welcome(message):
     if not check_membership(user_id):
         send_join_request(user_id)
         return
-    bot.reply_to(message, "မင်္ဂလာပါ။ YouTube သို့မဟုတ် TikTok လင့်ခ် ပို့ပေးပါ။\nVideo၊ Audio (MP3)၊ Subtitle နှင့် Thumbnail များကို ဒေါင်းလုဒ်ဆွဲနိုင်ပါသည်။")
+    bot.reply_to(message, "မင်္ဂလာပါ။ YouTube သို့မဟုတ် TikTok လင့်ခ် ပို့ပေးပါ။\nAudio (MP3)၊ Subtitle နှင့် Thumbnail များကို ဒေါင်းလုဒ်ဆွဲနိုင်ပါသည်။")
 
 
 @bot.message_handler(commands=['stats'])
@@ -213,11 +213,10 @@ def handle_link(message):
         return
     user_links[message.chat.id] = url
     markup = types.InlineKeyboardMarkup(row_width=2)
-    btn_video = types.InlineKeyboardButton("🎬 Video (Resolution ရွေးရန်)", callback_data="menu_video")
     btn_audio = types.InlineKeyboardButton("🎵 MP3 (Audio)", callback_data="audio")
     btn_thumb = types.InlineKeyboardButton("🖼 Thumbnail", callback_data="thumbnail")
     btn_sub = types.InlineKeyboardButton("📝 Subtitle", callback_data="subtitle")
-    markup.add(btn_video, btn_audio)
+    markup.add(btn_audio)
     markup.add(btn_thumb, btn_sub)
     bot.reply_to(message, "ပြုလုပ်လိုသည့် ပုံစံကို ရွေးချယ်ပါ 👇", reply_markup=markup)
 
@@ -243,23 +242,15 @@ def callback_query(call):
         bot.answer_callback_query(call.id, "Link သက်တမ်းကုန်သွားပါပြီ။ Link အသစ်ပြန်ပို့ပါ။")
         return
     if call.data == "menu_video":
-        markup = types.InlineKeyboardMarkup(row_width=2)
-        markup.add(
-            types.InlineKeyboardButton("360p", callback_data="vid_360"),
-            types.InlineKeyboardButton("480p", callback_data="vid_480"),
-            types.InlineKeyboardButton("720p (HD)", callback_data="vid_720"),
-            types.InlineKeyboardButton("1080p (FHD)", callback_data="vid_1080"),
-            types.InlineKeyboardButton("🔙 နောက်သို့", callback_data="back_main")
-        )
-        bot.edit_message_text("🎬 ဗီဒီယို အရည်အသွေး (Resolution) ရွေးပါ 👇", chat_id=chat_id, message_id=call.message.message_id, reply_markup=markup)
+        # Video button removed from the menu; stale menus land here.
+        bot.edit_message_text("🎬 Video download ပိတ်ထားပါတယ်။", chat_id=chat_id, message_id=call.message.message_id)
         return
     if call.data == "back_main":
         markup = types.InlineKeyboardMarkup(row_width=2)
-        btn_video = types.InlineKeyboardButton("🎬 Video (Resolution ရွေးရန်)", callback_data="menu_video")
         btn_audio = types.InlineKeyboardButton("🎵 MP3 (Audio)", callback_data="audio")
         btn_thumb = types.InlineKeyboardButton("🖼 Thumbnail", callback_data="thumbnail")
         btn_sub = types.InlineKeyboardButton("📝 Subtitle", callback_data="subtitle")
-        markup.add(btn_video, btn_audio)
+        markup.add(btn_audio)
         markup.add(btn_thumb, btn_sub)
         bot.edit_message_text("ပြုလုပ်လိုသည့် ပုံစံကို ရွေးချယ်ပါ 👇", chat_id=chat_id, message_id=call.message.message_id, reply_markup=markup)
         return
@@ -307,6 +298,10 @@ def callback_query(call):
                 bot.delete_message(chat_id=chat_id, message_id=call.message.message_id)
             else:
                 bot.edit_message_text("❌ ဤ Link တွင် Subtitle ဖိုင် မရှိပါ။", chat_id=chat_id, message_id=call.message.message_id)
+            return
+        if call.data.startswith("vid_"):
+            # Video downloads disabled; stale resolution buttons land here.
+            bot.edit_message_text("🎬 Video download ပိတ်ထားပါတယ်။", chat_id=chat_id, message_id=call.message.message_id)
             return
         bot.edit_message_text("⏳ ဒေါင်းလုဒ် ဆွဲနေပါပြီ... ခဏစောင့်ပါ။", chat_id=chat_id, message_id=call.message.message_id)
         if call.data.startswith("vid_"):
