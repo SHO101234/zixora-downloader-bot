@@ -11,6 +11,7 @@ Changes vs the original paste (only these):
     so Hugging Face Spaces + keep-alive pings can see the bot is alive.
     The bot itself still uses polling (infinity_polling), as before.
 """
+import glob
 import os
 import threading
 
@@ -68,6 +69,24 @@ telebot.apihelper.CONNECT_TIMEOUT = 60
 telebot.apihelper.READ_TIMEOUT = 60
 
 bot = telebot.TeleBot(TOKEN)
+
+
+def resolve_audio_file(base):
+    """Return the audio file yt-dlp actually produced for this base name.
+
+    yt-dlp's final filename does not always equal the template name
+    (extension handling differs by format/postprocessor), so never assume
+    it — pick the real file: .mp3 first, then any other audio file.
+    Raises FileNotFoundError when nothing was produced.
+    """
+    candidates = sorted(glob.glob(base + ".*"))
+    for ext in (".mp3", ".m4a", ".webm", ".opus", ".ogg"):
+        for candidate in candidates:
+            if candidate.endswith(ext):
+                return candidate
+    if candidates:
+        return candidates[0]
+    raise FileNotFoundError(f"audio file not produced for {base}")
 user_links = {}
 user_last_action = {}
 
@@ -329,11 +348,12 @@ def callback_query(call):
                 if os.path.exists(out_filename):
                     os.remove(out_filename)
         elif call.data == "audio":
-            out_filename = f"audio_{file_prefix}.mp3"
+            audio_base = f"audio_{file_prefix}"
+            out_filename = audio_base + ".mp3"
             ydl_opts = {
                 'ffmpeg_location': FFMPEG_EXE,
                 'format': 'bestaudio/best',
-                'outtmpl': out_filename,
+                'outtmpl': audio_base + ".%(ext)s",
                 'noplaylist': True,
                 'extractor_args': YT_EXTRACTOR_ARGS,
                 'postprocessors': [{
@@ -345,16 +365,18 @@ def callback_query(call):
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download([url])
+                out_filename = resolve_audio_file(audio_base)
             except Exception:
-                out_filename = f"audio_{file_prefix}.m4a"
+                fb_base = audio_base + "_fb"
                 ydl_opts_fallback = {
                     'format': 'm4a/bestaudio/best',
-                    'outtmpl': out_filename,
+                    'outtmpl': fb_base + ".%(ext)s",
                     'noplaylist': True,
                     'extractor_args': YT_EXTRACTOR_ARGS,
                 }
                 with yt_dlp.YoutubeDL(ydl_opts_fallback) as ydl:
                     ydl.download([url])
+                out_filename = resolve_audio_file(fb_base)
             try:
                 download_time = int(time.time() - start_time)
                 bot.edit_message_text(f"📤 Telegram သို့ Audio တင်နေပါပြီ... (ကြာချိန်: {download_time} စက္ကန့်)", chat_id=chat_id, message_id=call.message.message_id)
@@ -363,8 +385,9 @@ def callback_query(call):
                 bot.delete_message(chat_id=chat_id, message_id=call.message.message_id)
                 add_download_stat()
             finally:
-                if os.path.exists(out_filename):
-                    os.remove(out_filename)
+                for leftover in glob.glob(audio_base + ".*") + glob.glob(audio_base + "_fb.*"):
+                    if os.path.exists(leftover):
+                        os.remove(leftover)
     except Exception as e:
         bot.edit_message_text(f"❌ Error ဖြစ်သွားပါသည်:\n{str(e)}", chat_id=chat_id, message_id=call.message.message_id)
 
